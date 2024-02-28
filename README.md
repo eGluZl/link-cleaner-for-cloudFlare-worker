@@ -1,3 +1,4 @@
-# link-cleaner-for-cloudFlare-worker
+# link-cleaner-for-cloudflare-worker
 
-A JavaScript version of https://github.com/hellodk34/link-cleaner
+A JavaScript version of https://github.com/hellodk34/link-cleaner .
+
