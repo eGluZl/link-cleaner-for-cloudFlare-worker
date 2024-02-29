@@ -10,24 +10,42 @@
 
 export default {
     async fetch({ url }, env, ctx) {
-        if ((url ?? '') === '') {
-            return ok('');
-        }        
-        const params = getUrlParams(url);
-        if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
-            return ok('');
-        }
-        const { target } = params;
-        const urls = parseUrls(target)
-        if (urls == null || urls.length == 0) {
-            return ok('');
-        }
-        const firstUrl = urls[0]
-        const uu = await biliUri(firstUrl)
-        console.log(uu)
-        return new Response(uu);
+        const res = process(url);
+        return new Response(res);
     },
 };
+
+const URL_PROCESSER = new Map();
+URL_PROCESSER.set('yangkeduo.com', pddGoodsUri);
+URL_PROCESSER.set('jd.com', jdUri);
+URL_PROCESSER.set('taobao.com', taobaoComUri);
+URL_PROCESSER.set('tb.cn', taobaoCnUri);
+URL_PROCESSER.set('bilibili.com', biliUri);
+URL_PROCESSER.set('b23.tv', biliUri);
+URL_PROCESSER.set('douyin.com', douyinUri);
+URL_PROCESSER.set('xhslink.com', xiaohongshuUri);
+
+
+
+
+const process = (url) => {
+    if ((url ?? '') === '') {
+        return '';
+    }        
+    const params = getUrlParams(url);
+    if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
+        return '';
+    }
+    const { target } = params;
+    const urls = parseUrls(target)
+    if (urls == null || urls.length == 0) {
+        return '';
+    }
+    const firstUrl = urls[0]
+    const uu = await biliUri(firstUrl)
+
+    return uu;
+}
 
 
 const ok = (resp) => {
@@ -77,3 +95,29 @@ const biliUri = async (url) => {
     }
     return (text.length == 0 ? "" : (text + " ")) + removeParams(uri);
 }
+
+const taobaoComUri = async (url) => {
+
+}
+
+const taobaoCnUri = async (url) => {
+
+}
+
+const pddGoodsUri = async (url) => {
+
+}
+
+const jdUri = async (url) => {
+
+}
+
+const douyinUri = async (url) => {
+
+}
+
+const xiaohongshuUri = async (url) => {
+
+}
+
+
