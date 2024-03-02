@@ -15,7 +15,6 @@ const COMMON_FETCH_PARAMS = {method: 'HEAD', timeout: 20000}
 const parseUrls = (inputText) => {
     let urls = [];
     let match;
-
     // Find all URLs in the input text
     while ((match = URL_REGEX.exec(inputText)) !== null) {
         urls.push(match[0]);
@@ -33,10 +32,8 @@ const removeParams = (uri) => {
 }
 
 const getUrlParams = (url) => {
-    const url2 = url.split('#').shift();
-    const obj = {};
-    url2.replace(/([^?&=]+)=([^&]+)/g, (_, k, v) => (obj[k] = v));
-    return obj;
+    const origin = url.split('?')[0]
+    return url.split(`${origin}?target=`)[1]
 }
 
 const biliUri = async (url) => {
@@ -106,7 +103,6 @@ const pddGoodsUri = async (url) => {
             break;
         }
     }
-
     return goods[0].concat("?").concat(param);
 }
 
@@ -164,6 +160,7 @@ const xiaohongshuUri = async (url) => {
 
 const URL_PROCESS0R = new Map();
 URL_PROCESS0R.set('yangkeduo.com', pddGoodsUri);
+URL_PROCESS0R.set('mobile.yangkeduo.com', pddGoodsUri);
 URL_PROCESS0R.set('jd.com', jdUri);
 URL_PROCESS0R.set('taobao.com', taobaoComUri);
 URL_PROCESS0R.set('tb.cn', taobaoCnUri);
@@ -176,25 +173,20 @@ const process = async (url) => {
     if ((url ?? '') === '') {
         return '';
     }
-
-    const params = getUrlParams(url);
-    if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
+    const target = getUrlParams(url);
+    if ((target ?? '') === '') {
         return '';
     }
 
-    const {target} = params;
     const urls = parseUrls(target)
     if (urls == null || urls.length === 0) {
         return '';
     }
-
     const processedUrls = await Promise.all(
         urls.map(async (e) => {
             const domain = new URL(e).hostname;
-            console.log(domain)
             const fun = URL_PROCESS0R.get(domain);
             if (typeof fun === 'function') {
-                console.log('is fun')
                 return await fun(e);
             } else {
                 return e;
