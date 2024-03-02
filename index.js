@@ -67,7 +67,7 @@ const taobaoComUri = async (url) => {
 }
 
 const taobaoCnUri = async (url) => {
-    let uri = url;
+    let uri = decodeURIComponent(url);
     if (uri.includes("taobao.com")) {
         return taobaoComUri(uri);
     }
@@ -75,16 +75,15 @@ const taobaoCnUri = async (url) => {
     const end = uri.indexOf(" ");
     const goodName = uri.substring(end);
     const realUri = uri.substring(start, end);
-    const result = await fetch(uri, COMMON_FETCH_PARAMS);
+    const result = await fetch(realUri, {method: 'GET', timeout: 20000});
     const responseBody = await result.text();
     const regex = /var url = '([^'\r\n]*)';/;
     const matcher = responseBody.match(regex);
-
     if (matcher) {
         uri = matcher[1];
     }
 
-    return await taobaoComUri(uri);
+    return `${goodName} ${await taobaoComUri(uri)}`;
 }
 
 const pddGoodsUri = async (url) => {
