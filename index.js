@@ -68,14 +68,14 @@ const taobaoComUri = async (url) => {
 
 const taobaoCnUri = async (url) => {
     let uri = url;
-    if (uri.contains("taobao.com")) {
+    if (uri.includes("taobao.com")) {
         return taobaoComUri(uri);
     }
     const start = uri.indexOf("https");
     const end = uri.indexOf(" ");
     const goodName = uri.substring(end);
     const realUri = uri.substring(start, end);
-    const result = await fetch(realUri, COMMON_FETCH_PARAMS);
+    const result = await fetch(uri, COMMON_FETCH_PARAMS);
     const responseBody = await result.text();
     const regex = /var url = '([^'\r\n]*)';/;
     const matcher = responseBody.match(regex);
@@ -84,7 +84,7 @@ const taobaoCnUri = async (url) => {
         uri = matcher[1];
     }
 
-    return `${goodName} ${await taobaoComUri(uri)}`;
+    return await taobaoComUri(uri);
 }
 
 const pddGoodsUri = async (url) => {
@@ -164,6 +164,7 @@ URL_PROCESS0R.set('mobile.yangkeduo.com', pddGoodsUri);
 URL_PROCESS0R.set('jd.com', jdUri);
 URL_PROCESS0R.set('taobao.com', taobaoComUri);
 URL_PROCESS0R.set('tb.cn', taobaoCnUri);
+URL_PROCESS0R.set('m.tb.cn', taobaoCnUri);
 URL_PROCESS0R.set('bilibili.com', biliUri);
 URL_PROCESS0R.set('b23.tv', biliUri);
 URL_PROCESS0R.set('douyin.com', douyinUri);
