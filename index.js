@@ -8,60 +8,9 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
-export default {
-    async fetch({url}, env, ctx) {
-        const res = process(url);
-        return new Response(res);
-    },
-};
-
-const URL_PROCESS0R = new Map();
-URL_PROCESS0R.set('yangkeduo.com', pddGoodsUri);
-URL_PROCESS0R.set('jd.com', jdUri);
-URL_PROCESS0R.set('taobao.com', taobaoComUri);
-URL_PROCESS0R.set('tb.cn', taobaoCnUri);
-URL_PROCESS0R.set('bilibili.com', biliUri);
-URL_PROCESS0R.set('b23.tv', biliUri);
-URL_PROCESS0R.set('douyin.com', douyinUri);
-URL_PROCESS0R.set('xhslink.com', xiaohongshuUri);
-
 const URL_REGEX = /(https?:\/\/[^\s]+)/g;
 
 const COMMON_FETCH_PARAMS = {method: 'HEAD', timeout: 20000}
-
-
-const process = async (url) => {
-    if ((url ?? '') === '') {
-        return '';
-    }
-
-    const params = getUrlParams(url);
-    if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
-        return '';
-    }
-
-    const {target} = params;
-    const urls = parseUrls(target)
-    if (urls == null || urls.length === 0) {
-        return '';
-    }
-
-    const processedUrls = urls.map((e) => {
-        const domain = new URL(e);
-        const fun = URL_PROCESS0R.get(domain);
-        if (typeof fun === 'function') {
-            return fun(e);
-        }
-        return e;
-    })
-
-    return target.replace(URL_REGEX, () => (processedUrls.shift()));
-}
-
-
-const ok = (resp) => {
-    return new Response(resp);
-}
 
 const parseUrls = (inputText) => {
     let urls = [];
@@ -162,7 +111,7 @@ const pddGoodsUri = async (url) => {
 }
 
 const jdUri = async (url) => {
-    return removeParams(url)
+    return removeParams(uri)
 }
 
 const douyinUri = async (url) => {
@@ -213,4 +162,51 @@ const xiaohongshuUri = async (url) => {
     return "";
 }
 
+const URL_PROCESS0R = new Map();
+URL_PROCESS0R.set('yangkeduo.com', pddGoodsUri);
+URL_PROCESS0R.set('jd.com', jdUri);
+URL_PROCESS0R.set('taobao.com', taobaoComUri);
+URL_PROCESS0R.set('tb.cn', taobaoCnUri);
+URL_PROCESS0R.set('bilibili.com', biliUri);
+URL_PROCESS0R.set('b23.tv', biliUri);
+URL_PROCESS0R.set('douyin.com', douyinUri);
+URL_PROCESS0R.set('xhslink.com', xiaohongshuUri);
 
+const process = async (url) => {
+    if ((url ?? '') === '') {
+        return '';
+    }
+
+    const params = getUrlParams(url);
+    if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
+        return '';
+    }
+
+    const {target} = params;
+    const urls = parseUrls(target)
+    if (urls == null || urls.length === 0) {
+        return '';
+    }
+
+    const processedUrls = await Promise.all(
+        urls.map(async (e) => {
+            const domain = new URL(e).hostname;
+            console.log(domain)
+            const fun = URL_PROCESS0R.get(domain);
+            if (typeof fun === 'function') {
+                console.log('is fun')
+                return await fun(e);
+            } else {
+                return e;
+            }
+        })
+    )
+    return target.replace(URL_REGEX, () => (processedUrls.shift()));
+}
+
+export default {
+    async fetch({url}, env, ctx) {
+        const res = await process(url);
+        return new Response(decodeURIComponent(res || ''));
+    },
+};
