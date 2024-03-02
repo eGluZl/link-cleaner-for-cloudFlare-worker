@@ -9,42 +9,53 @@
  */
 
 export default {
-    async fetch({ url }, env, ctx) {
+    async fetch({url}, env, ctx) {
         const res = process(url);
         return new Response(res);
     },
 };
 
-const URL_PROCESSER = new Map();
-URL_PROCESSER.set('yangkeduo.com', pddGoodsUri);
-URL_PROCESSER.set('jd.com', jdUri);
-URL_PROCESSER.set('taobao.com', taobaoComUri);
-URL_PROCESSER.set('tb.cn', taobaoCnUri);
-URL_PROCESSER.set('bilibili.com', biliUri);
-URL_PROCESSER.set('b23.tv', biliUri);
-URL_PROCESSER.set('douyin.com', douyinUri);
-URL_PROCESSER.set('xhslink.com', xiaohongshuUri);
+const URL_PROCESS0R = new Map();
+URL_PROCESS0R.set('yangkeduo.com', pddGoodsUri);
+URL_PROCESS0R.set('jd.com', jdUri);
+URL_PROCESS0R.set('taobao.com', taobaoComUri);
+URL_PROCESS0R.set('tb.cn', taobaoCnUri);
+URL_PROCESS0R.set('bilibili.com', biliUri);
+URL_PROCESS0R.set('b23.tv', biliUri);
+URL_PROCESS0R.set('douyin.com', douyinUri);
+URL_PROCESS0R.set('xhslink.com', xiaohongshuUri);
+
+const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+const COMMON_FETCH_PARAMS = {method: 'HEAD', timeout: 20000}
 
 
-
-
-const process = (url) => {
+const process = async (url) => {
     if ((url ?? '') === '') {
         return '';
-    }        
+    }
+
     const params = getUrlParams(url);
     if (Object.keys(params).length === 0 || (params.target ?? '') === '') {
         return '';
     }
-    const { target } = params;
+
+    const {target} = params;
     const urls = parseUrls(target)
-    if (urls == null || urls.length == 0) {
+    if (urls == null || urls.length === 0) {
         return '';
     }
-    const firstUrl = urls[0]
-    const uu = await biliUri(firstUrl)
 
-    return uu;
+    const processedUrls = urls.map((e) => {
+        const domain = new URL(e);
+        const fun = URL_PROCESS0R.get(domain);
+        if (typeof fun === 'function') {
+            return fun(e);
+        }
+        return e;
+    })
+
+    return target.replace(URL_REGEX, () => (processedUrls.shift()));
 }
 
 
@@ -53,15 +64,11 @@ const ok = (resp) => {
 }
 
 const parseUrls = (inputText) => {
-    // Regular expression to match URLs
-    let urlRegex = /(https?:\/\/[^\s]+)/g;
-
-    // Array to store extracted URLs
     let urls = [];
     let match;
 
     // Find all URLs in the input text
-    while ((match = urlRegex.exec(inputText)) !== null) {
+    while ((match = URL_REGEX.exec(inputText)) !== null) {
         urls.push(match[0]);
     }
 
@@ -89,35 +96,121 @@ const biliUri = async (url) => {
     const text = uri.substring(0, httpsIndex);
     uri = uri.substring(httpsIndex);
     if (uri.includes("b23.tv")) {
-        let resp = await fetch(uri, { method: 'HEAD', timeout: 20000 });        
-        let location = resp.url;
-        uri = location;
+        const resp = await fetch(uri, COMMON_FETCH_PARAMS);
+        uri = resp.url;
     }
-    return (text.length == 0 ? "" : (text + " ")) + removeParams(uri);
+    return (text.length === 0 ? "" : (text + " ")) + removeParams(uri);
 }
 
 const taobaoComUri = async (url) => {
-
+    let uri = url;
+    const split = uri.split("&");
+    if (split.length === 1) {
+        return split[0];
+    }
+    const id = uri.split("?");
+    let param = "";
+    for (let i = 0; i < split.length; i++) {
+        const item = split[i];
+        if (item.startsWith("id") && item.includes("id=")) {
+            param = item;
+            break;
+        }
+    }
+    return id[0].concat("?").concat(param);
 }
 
 const taobaoCnUri = async (url) => {
+    let uri = url;
+    if (uri.contains("taobao.com")) {
+        return taobaoComUri(uri);
+    }
+    const start = uri.indexOf("https");
+    const end = uri.indexOf(" ");
+    const goodName = uri.substring(end);
+    const realUri = uri.substring(start, end);
+    const result = await fetch(realUri, COMMON_FETCH_PARAMS);
+    const responseBody = await result.text();
+    const regex = /var url = '([^'\r\n]*)';/;
+    const matcher = responseBody.match(regex);
 
+    if (matcher) {
+        uri = matcher[1];
+    }
+
+    return `${goodName} ${await taobaoComUri(uri)}`;
 }
 
 const pddGoodsUri = async (url) => {
+    const split = url.split("&");
+    const goods = url.split("?");
+    let param = "";
 
+    if (split.length === 1) {
+        return split[0];
+    }
+
+    for (let i = 0; i < split.length; i++) {
+        let item = split[i];
+        if (item.startsWith("goods") && item.includes("goods_id=")) {
+            param = item;
+            break;
+        }
+    }
+
+    return goods[0].concat("?").concat(param);
 }
 
 const jdUri = async (url) => {
-
+    return removeParams(url)
 }
 
 const douyinUri = async (url) => {
+    const uri = url;
+    const startIndex = uri.indexOf("抖音，");
+    const httpsIndex = uri.indexOf("https");
+    const text = uri.substring(startIndex + 3, httpsIndex);
+    const newUri = uri.substring(httpsIndex);
 
+    const resp = await fetch(newUri, COMMON_FETCH_PARAMS);
+    const location = resp.headers.get('Location');
+    const newLocation = removeParams(location);
+    const regex = /\/(\d+)\//;
+    const match = newLocation.match(regex);
+
+    if (match) {
+        const videoId = match[1];
+        const newUriTemplate = "https://www.douyin.com/video/%s";
+        const result = newUriTemplate.replace('%s', videoId);
+        return text + result;
+    }
+
+    return url;
 }
 
 const xiaohongshuUri = async (url) => {
+    let schemePrefix = null;
+    if (url.includes("http://")) {
+        schemePrefix = "http://";
+    } else if (url.includes("https://")) {
+        schemePrefix = "https://";
+    } else {
+        console.log(`${url} is not supported now.`);
+    }
+    const httpIndex = url.lastIndexOf(schemePrefix);
+    // 正则表达式匹配 URI
+    const regex = /(?<=http:\/\/|https:\/\/)[\w\d+./?=]+/;
+    const matcher = url.match(regex);
 
+    // 寻找匹配项并输出结果
+    if (matcher) {
+        const uri = matcher[0];
+        const resp = await fetch(schemePrefix + uri, COMMON_FETCH_PARAMS);
+        const location = resp.headers.get('Location');
+        const cleanedUri = removeParams(location);
+        return url.substring(0, httpIndex) + " " + cleanedUri;
+    }
+    return "";
 }
 
 
